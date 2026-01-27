@@ -50,5 +50,5 @@
     { "before": ["J"], "commands": ["editor.action.moveLinesDownAction"] },
     { "before": ["K"], "commands": ["editor.action.moveLinesUpAction"] },
     { "before": ["p"], "after": ["p", "g", "v", "y"] }
-  ],
+  ]
 }
