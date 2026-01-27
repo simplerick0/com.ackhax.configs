@@ -1,21 +1,18 @@
 #!/bin/bash
 # ===========================================
-# VSCode/Cursor Config Setup Script
+# VSCode/Cursor Machine Config Setup Script
 # ===========================================
-# Creates symlinks from Cursor config locations to this repository.
+# Creates symlinks for machine-level configs on remote servers.
+# User and profile configs are client-side only (not handled here).
 #
 # Usage:
 #   ./setup.sh [options]
 #
 # Options:
 #   --copy              Copy files instead of symlinks
-#   --profile <name>    Setup only a specific profile
-#   --machine <name>    Setup only a specific machine
-#   --no-user           Skip user-level config
+#   --machine <name>    Setup a specific machine config (default: hostname)
 #
 # Directory structure:
-#   user/               -> ~/.cursor-server/data/User/ (default profile)
-#   profiles/<name>/    -> ~/.cursor-server/data/User/profiles/<id>/
 #   machines/<name>/    -> ~/.cursor-server/data/Machine/
 # ===========================================
 
@@ -24,16 +21,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOSTNAME=$(hostname)
 USE_COPY=false
-TARGET_PROFILE=""
 TARGET_MACHINE=""
-SKIP_USER=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --copy) USE_COPY=true; shift ;;
-        --profile) TARGET_PROFILE="$2"; shift 2 ;;
         --machine) TARGET_MACHINE="$2"; shift 2 ;;
-        --no-user) SKIP_USER=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -94,32 +87,9 @@ setup_dir() {
     done
 }
 
-get_profile_id() {
-    local profile_name="$1"
-    local storage_file="$SERVER_DIR/User/globalStorage/storage.json"
-
-    [[ ! -f "$storage_file" ]] && return
-
-    if command -v jq &> /dev/null; then
-        jq -r --arg name "$profile_name" \
-            '.userDataProfiles[] | select(.name == $name) | .location // empty' \
-            "$storage_file" 2>/dev/null
-    elif command -v python3 &> /dev/null; then
-        python3 -c "
-import json, sys
-with open('$storage_file') as f:
-    data = json.load(f)
-for p in data.get('userDataProfiles', []):
-    if p.get('name') == '$profile_name':
-        print(p.get('location', ''))
-        break
-" 2>/dev/null
-    fi
-}
-
 main() {
     echo "=========================================="
-    echo "VSCode/Cursor Config Setup"
+    echo "VSCode/Cursor Machine Config Setup"
     echo "=========================================="
     echo "Host: $HOSTNAME"
     echo "Mode: $(if $USE_COPY; then echo 'copy'; else echo 'symlink'; fi)"
@@ -130,35 +100,7 @@ main() {
     }
     info "Server: $SERVER_DIR"
 
-    # User-level config (default profile)
-    if [[ "$SKIP_USER" != "true" && -z "$TARGET_PROFILE" ]]; then
-        section "User (Default Profile)"
-        setup_dir "$SCRIPT_DIR/user" "$SERVER_DIR/User"
-    fi
-
-    # Profile configs
-    if [[ -d "$SCRIPT_DIR/profiles" ]]; then
-        for profile_dir in "$SCRIPT_DIR/profiles"/*/; do
-            [[ ! -d "$profile_dir" ]] && continue
-
-            profile_name=$(basename "$profile_dir")
-
-            if [[ -n "$TARGET_PROFILE" && "$profile_name" != "$TARGET_PROFILE" ]]; then
-                continue
-            fi
-
-            profile_id=$(get_profile_id "$profile_name")
-            if [[ -z "$profile_id" ]]; then
-                warn "Profile '$profile_name' not found in Cursor, skipping"
-                continue
-            fi
-
-            section "Profile: $profile_name ($profile_id)"
-            setup_dir "$profile_dir" "$SERVER_DIR/User/profiles/$profile_id"
-        done
-    fi
-
-    # Machine configs
+    # Machine configs (user/profile configs are client-side only)
     if [[ -d "$SCRIPT_DIR/machines" ]]; then
         machine_name="${TARGET_MACHINE:-$HOSTNAME}"
         machine_dir="$SCRIPT_DIR/machines/$machine_name"
