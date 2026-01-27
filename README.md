@@ -18,7 +18,7 @@ Configuration files and Claude Code skills for development environments.
 Targeted for **VIM users** of the Cursor IDE.
 
 - **Leader key**: `,` (comma)
-- **Ctrl+K overrides**: Disabled to allow Cursor AI keybindings
+- **Ctrl+K**: Disabled in Cursor so VIM can use it
 - **Escape alternatives**: `jk` or `jj` in insert mode
 
 ### Configuration Layers
